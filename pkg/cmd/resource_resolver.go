@@ -7,6 +7,7 @@ import (
 	apismeta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
+	"k8s.io/klog"
 	"strings"
 )
 
@@ -43,11 +44,13 @@ func (rv *resourceResolver) Resolve(verb, resource, subResource string) (schema.
 
 	gvr, err := rv.resolveGVR(resource)
 	if err != nil {
+		klog.V(3).Infof("Error while resolving GVR for resource %s: %v", resource, err)
 		return schema.GroupResource{}, fmt.Errorf("the server doesn't have a resource type \"%s\"", name)
 	}
 
 	apiResource, err := rv.resolveAPIResource(gvr, subResource)
 	if err != nil {
+		klog.V(3).Infof("Error while resolving APIResource for GVR %v and subResource %s: %v", gvr, subResource, err)
 		return schema.GroupResource{}, fmt.Errorf("the server doesn't have a resource type \"%s\"", name)
 	}
 
@@ -138,6 +141,9 @@ func (rv *resourceResolver) indexResources(gvr schema.GroupVersionResource) (map
 // Returns `true` if the given verb equals VerbAll.
 func (rv *resourceResolver) isVerbSupportedBy(verb string, resource apismeta.APIResource) bool {
 	if verb == rbac.VerbAll {
+		return true
+	}
+	if resource.Name == "podsecuritypolicies" && verb == "use" {
 		return true
 	}
 	supported := false

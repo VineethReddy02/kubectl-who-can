@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"github.com/golang/glog"
 	rbac "k8s.io/api/rbac/v1"
+	"k8s.io/klog"
 )
 
 // PolicyRuleMatcher wraps the Matches* methods.
@@ -11,8 +11,8 @@ import (
 //
 // MatchesClusterRole returns `true` if any PolicyRule defined by the given ClusterRole matches the specified Action, `false` otherwise.
 type PolicyRuleMatcher interface {
-	MatchesRole(role rbac.Role, action Action) bool
-	MatchesClusterRole(role rbac.ClusterRole, action Action) bool
+	MatchesRole(role rbac.Role, action resolvedAction) bool
+	MatchesClusterRole(role rbac.ClusterRole, action resolvedAction) bool
 }
 
 type matcher struct {
@@ -23,47 +23,47 @@ func NewPolicyRuleMatcher() PolicyRuleMatcher {
 	return &matcher{}
 }
 
-func (m *matcher) MatchesRole(role rbac.Role, action Action) bool {
+func (m *matcher) MatchesRole(role rbac.Role, action resolvedAction) bool {
 	for _, rule := range role.Rules {
 		if !m.matches(rule, action) {
 			continue
 		}
-		glog.V(4).Infof("Role [%s] matches action filter? YES", role.Name)
+		klog.V(4).Infof("Role [%s] matches action filter? YES", role.Name)
 		return true
 	}
-	glog.V(4).Infof("Role [%s] matches action filter? NO", role.Name)
+	klog.V(4).Infof("Role [%s] matches action filter? NO", role.Name)
 	return false
 }
 
-func (m *matcher) MatchesClusterRole(role rbac.ClusterRole, action Action) bool {
+func (m *matcher) MatchesClusterRole(role rbac.ClusterRole, action resolvedAction) bool {
 	for _, rule := range role.Rules {
 		if !m.matches(rule, action) {
 			continue
 		}
 
-		glog.V(4).Infof("ClusterRole [%s] matches action filter? YES", role.Name)
+		klog.V(4).Infof("ClusterRole [%s] matches action filter? YES", role.Name)
 		return true
 	}
-	glog.V(4).Infof("ClusterRole [%s] matches action filter? NO", role.Name)
+	klog.V(4).Infof("ClusterRole [%s] matches action filter? NO", role.Name)
 	return false
 }
 
 // matches returns `true` if the given PolicyRule matches the specified Action, `false` otherwise.
-func (m *matcher) matches(rule rbac.PolicyRule, action Action) bool {
-	if action.nonResourceURL != "" {
-		return m.matchesVerb(rule, action.verb) &&
-			m.matchesNonResourceURL(rule, action.nonResourceURL)
+func (m *matcher) matches(rule rbac.PolicyRule, action resolvedAction) bool {
+	if action.NonResourceURL != "" {
+		return m.matchesVerb(rule, action.Verb) &&
+			m.matchesNonResourceURL(rule, action.NonResourceURL)
 	}
 
 	resource := action.gr.Resource
-	if action.subResource != "" {
-		resource += "/" + action.subResource
+	if action.SubResource != "" {
+		resource += "/" + action.SubResource
 	}
 
-	return m.matchesVerb(rule, action.verb) &&
+	return m.matchesVerb(rule, action.Verb) &&
 		m.matchesResource(rule, resource) &&
 		m.matchesAPIGroup(rule, action.gr.Group) &&
-		m.matchesResourceName(rule, action.resourceName)
+		m.matchesResourceName(rule, action.ResourceName)
 }
 
 func (m *matcher) matchesAPIGroup(rule rbac.PolicyRule, actionGroup string) bool {
